@@ -1,6 +1,6 @@
 ---
 title: "Connect a client"
-description: "Add the PlugKit MCP server to Claude, ChatGPT, Claude Code, Cursor, VS Code, or any other MCP client."
+description: "Add the PlugKit MCP server to Claude, ChatGPT, Grok, Claude Code, Cursor, VS Code, or any other MCP client."
 ---
 
 Every client needs the same thing — the server URL:
@@ -96,6 +96,33 @@ plugin* there, and the switch is not where most people look for it.
   **and** by what was said in them), accounts, media, automations, sequences,
   broadcasts and playbooks. They are read-only, and every client gets them, not
   just ChatGPT.
+</Note>
+
+## Grok
+
+Grok calls a custom MCP server a **connector**. It takes the same URL and signs
+in with OAuth like the others.
+
+<Steps>
+  <Step title="Open the connectors screen">
+    On [grok.com/connectors](https://grok.com/connectors), click
+    **New Connector**, then **Custom**.
+  </Step>
+  <Step title="Paste the URL">
+    Name it `PlugKit` and paste `https://api.plugkit.co/mcp` as the server URL.
+    There is no client id or secret to fill in — PlugKit registers Grok itself.
+  </Step>
+  <Step title="Approve, then use it">
+    Grok opens PlugKit: sign in if needed, pick read-only or full access, and
+    approve. Then ask *"what PlugKit accounts do I have?"* — it should call
+    `whoami` and list your profiles and connected accounts.
+  </Step>
+</Steps>
+
+<Note>
+  Custom connectors need a paid Grok plan (SuperGrok). Grok only accepts remote
+  servers over Streamable HTTP or SSE, which is what PlugKit is — nothing to
+  install.
 </Note>
 
 ## Claude Code
@@ -239,7 +266,7 @@ const { tools } = await client.listTools();
     ```
   </Accordion>
   <Accordion title="Someone gave me an API key — where do I paste it?">
-    Nowhere, for Claude, Claude Code, Cursor and VS Code: they sign in instead,
+    Nowhere, for Claude, ChatGPT, Grok, Claude Code, Cursor and VS Code: they sign in instead,
     which is both easier and safer. A key is only for an app that can't open a
     sign-in window, or for your own code — it goes in a config file or an
     environment variable, never in a chat. A key carries full access and doesn't
