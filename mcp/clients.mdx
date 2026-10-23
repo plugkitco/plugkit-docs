@@ -27,8 +27,9 @@ to paste unless you want one.
 
 <Steps>
   <Step title="Open the connector settings">
-    In Claude, open [Settings → Customize → Connectors](https://claude.ai/new#settings/customize-connectors),
-    then **Add → Custom connector**.
+    In Claude, open [Customize → Connectors](https://claude.ai/#customize/connectors),
+    then **Add → Custom connector**. On a phone, do this in Safari or Chrome at
+    claude.ai, not in the Claude app; the connector then shows up in the app too.
   </Step>
   <Step title="Paste the URL">
     Name it `PlugKit` and paste `https://api.plugkit.co/mcp`. Leave the advanced
@@ -51,42 +52,35 @@ to paste unless you want one.
 
 ## ChatGPT
 
-ChatGPT takes the same URL — but a custom MCP server is a *developer-mode
-plugin* there, and the switch is not where most people look for it.
+ChatGPT takes the same URL, as a custom MCP server on its **Plugins** screen.
+Add it **in a browser** at chatgpt.com, on your computer or your phone (Safari,
+Chrome). The ChatGPT app has no screen to add one.
 
 <Steps>
-  <Step title="Turn developer mode on">
-    In ChatGPT: **Settings → Security and login → Developer mode**. Not under
-    Apps or Connectors. Without it, the **+** button in the next step does not
-    exist.
+  <Step title="Open the plugins screen in your browser">
+    Go to [chatgpt.com/plugins](https://chatgpt.com/plugins#no_universal_links)
+    and sign in. On an iPhone, a plain `chatgpt.com/plugins` link opens the
+    ChatGPT app instead of Safari: use this link, or type the address in Safari.
   </Step>
-  <Step title="Open the plugins screen">
-    Go to [chatgpt.com/plugins](https://chatgpt.com/plugins), click the **+** in
-    the top right, then **Create app**. A *New plugin* dialog opens on a big
-    drag-and-drop box — ignore the box and click **Create an MCP app**, at the
-    bottom left of that dialog.
-
-    Both other doors are dead ends: **Create plugin** builds a whole plugin
-    package and never asks for a server URL, and **Upload plugin** wants a `.zip`
-    you don't have. *Create app → Create an MCP app* is the only path that asks
-    for one.
+  <Step title="Add a custom MCP server">
+    Click the **+** in the top right, then **Add custom MCP server**.
   </Step>
   <Step title="Fill in the connection">
-    Name it `PlugKit`, give it any description, paste
-    `https://api.plugkit.co/mcp` as the MCP server URL, and pick **OAuth**.
-    Leave client id and secret empty — PlugKit registers ChatGPT itself.
+    Name it `PlugKit` and paste `https://api.plugkit.co/mcp` under **Server
+    URL**. Pick **OAuth** and leave client id and secret empty: PlugKit registers
+    ChatGPT itself. Tick **I understand** and create the plugin.
   </Step>
   <Step title="Approve, then use it">
     ChatGPT opens PlugKit: sign in if needed, pick read-only or full access, and
     approve. In a new chat, open the **+** menu and select **PlugKit**. Ask
-    *"search my PlugKit account for the conversation about pricing"* — it should
+    *"search my PlugKit account for the conversation about pricing"*. It should
     call `search`, then `fetch` on the result.
   </Step>
 </Steps>
 
 <Note>
-  Developer mode needs the ChatGPT **web** app and a paid plan (Plus, Pro,
-  Business, Enterprise or Edu). It is not available on the free plan.
+  You need a paid ChatGPT plan (Plus, Pro, Business, Enterprise or Edu).
+  Developer mode is no longer needed.
 </Note>
 
 <Note>
