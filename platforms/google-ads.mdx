@@ -1,0 +1,186 @@
+---
+title: "Google Ads"
+description: "Run Google Search campaigns and send offline conversions — no Google API access to request on your side."
+icon: "google"
+---
+
+A `google_ads` account is a **Google Ads client account**, not a social
+network. It publishes nothing and receives no messages: it holds campaigns.
+
+You don't need your own Google Cloud project, Google Ads API access or
+Google's API review. PlugKit calls the Google Ads API with its own approved
+access; your users only sign in with Google.
+
+<CardGroup cols={2}>
+  <Card title="Search campaigns" icon="magnifying-glass">Budget, countries, languages, bidding.</Card>
+  <Card title="Keywords & ads" icon="key">Ad groups with keywords, responsive search ads.</Card>
+  <Card title="Insights" icon="chart-column">Spend and performance at every level.</Card>
+  <Card title="Offline conversions" icon="arrow-right-arrow-left">Tell Google which leads became customers.</Card>
+</CardGroup>
+
+## Connect
+
+```bash
+curl "https://api.plugkit.co/v1/connect/google_ads?profileId=YOUR_PROFILE_ID" \
+  -H "Authorization: Bearer sk_your_key"
+```
+
+Open the returned `authUrl` in the browser. When the Google user can reach
+several client accounts — directly, or through an agency's manager account —
+they pick which ones to add, and each becomes its own PlugKit account. A
+manager account on its own isn't connectable: it holds no campaigns.
+
+```bash Check what you're spending against
+curl https://api.plugkit.co/v1/ads/ACCOUNT_ID/account -H "Authorization: Bearer sk_your_key"
+```
+
+Returns the currency, status and whether auto-tagging is on (you need it to
+send conversions).
+
+## Same API as Meta Ads
+
+Google Ads uses the same `/v1/ads/{accountId}/…` routes as
+[Meta Ads](/platforms/meta-ads), and the account decides which one PlugKit
+calls. The words are mapped like this:
+
+| PlugKit | Google Ads |
+| --- | --- |
+| campaign | campaign (Search) |
+| ad set | ad group |
+| ad | responsive search ad |
+| `ACTIVE` / `PAUSED` | `ENABLED` / `PAUSED` |
+
+<Warning>
+  **Budgets are in minor units, like on Meta.** `2000` is €20.00. Google counts
+  in micros internally; PlugKit converts both ways, so you never see them.
+</Warning>
+
+<Warning>
+  **Everything is created `PAUSED`.** Set `status: "ACTIVE"` only after an
+  explicit go on the amount and the targeting.
+</Warning>
+
+## Build a Search campaign
+
+```bash Campaign — budget and targeting
+curl -X POST https://api.plugkit.co/v1/ads/ACCOUNT_ID/campaigns \
+  -H "Authorization: Bearer sk_your_key" -H "Content-Type: application/json" \
+  -d '{
+    "name": "Plumber Paris",
+    "dailyBudget": 2000,
+    "countries": ["FR"],
+    "languages": ["fr"],
+    "bidStrategy": "MAXIMIZE_CLICKS"
+  }'
+```
+
+- `dailyBudget` is required. The budget lives on the campaign: ad groups have none.
+- `countries` defaults to `["FR"]`. A Google campaign with no location
+  targeting would serve worldwide.
+- `bidStrategy`: `MAXIMIZE_CLICKS` (default), `MAXIMIZE_CONVERSIONS` or `MANUAL_CPC`.
+- `containsEuPoliticalAdvertising` defaults to `false`. Google requires this
+  declaration on every new campaign.
+
+```bash Ad group — with its keywords
+curl -X POST https://api.plugkit.co/v1/ads/ACCOUNT_ID/adsets \
+  -H "Authorization: Bearer sk_your_key" -H "Content-Type: application/json" \
+  -d '{
+    "name": "Emergency",
+    "campaignId": "CAMPAIGN_ID",
+    "bidAmount": 150,
+    "keywords": [
+      { "text": "emergency plumber paris", "matchType": "PHRASE" },
+      { "text": "plumber near me" }
+    ]
+  }'
+```
+
+`bidAmount` is the max CPC, in minor units. `matchType` is `BROAD` by default.
+
+```bash Ad — responsive search ad
+curl -X POST https://api.plugkit.co/v1/ads/ACCOUNT_ID/ads \
+  -H "Authorization: Bearer sk_your_key" -H "Content-Type: application/json" \
+  -d '{
+    "name": "Main ad",
+    "adSetId": "AD_GROUP_ID",
+    "headlines": ["Plumber in Paris", "There in 1 hour", "Free quote"],
+    "descriptions": ["Licensed plumbers, 7 days a week.", "Call now or book online."],
+    "finalUrls": ["https://example.com/plumbing"]
+  }'
+```
+
+You need 3 to 15 headlines (30 characters max each) and 2 to 4 descriptions
+(90 characters max). Ad ids come back as `{adGroupId}~{adId}`: pass them
+as-is to `PATCH /ads/ACCOUNT_ID/ads/{id}`. An ad can be paused or resumed, but
+not renamed.
+
+```bash Keywords of an ad group
+curl "https://api.plugkit.co/v1/ads/ACCOUNT_ID/keywords?adSetId=AD_GROUP_ID" \
+  -H "Authorization: Bearer sk_your_key"
+```
+
+## Insights
+
+```bash
+curl "https://api.plugkit.co/v1/ads/ACCOUNT_ID/insights?level=campaign&datePreset=last_30d" \
+  -H "Authorization: Bearer sk_your_key"
+```
+
+- `level` is `account`, `campaign`, `adset` or `ad`.
+- `objectId` filters at that level.
+- For the period, use `datePreset` (`today`, `yesterday`, `last_7d`,
+  `last_14d`, `last_30d`, `this_month`, `last_month`) or `since` + `until` (YYYY-MM-DD).
+- `spend` and `cpc` come back in major units, as strings (`"12.34"`), and
+  `ctr` as a percentage, the same shape as on Meta.
+
+## Offline conversions
+
+Tell Google which clicks turned into real results (a lead that signed, a sale
+closed by phone), so it optimizes on them rather than on form fills.
+
+1. In Google Ads, create a conversion action that imports from "Other data
+   sources or CRMs". Then find its id:
+
+```bash
+curl https://api.plugkit.co/v1/ads/ACCOUNT_ID/conversion-actions -H "Authorization: Bearer sk_your_key"
+```
+
+   Use one with `accepts_uploads: true`.
+
+2. Send the conversions:
+
+```bash
+curl -X POST https://api.plugkit.co/v1/ads/ACCOUNT_ID/conversions \
+  -H "Authorization: Bearer sk_your_key" -H "Content-Type: application/json" \
+  -d '{
+    "conversionActionId": "123456789",
+    "conversions": [
+      {
+        "gclid": "Cj0KCQjw...",
+        "email": "jane@example.com",
+        "conversionDateTime": "2026-10-20T14:30:00+02:00",
+        "value": 490,
+        "orderId": "lead-8812"
+      }
+    ]
+  }'
+```
+
+- Each conversion needs a `gclid` (captured from the landing page URL), an
+  `email`, or a `phone` in E.164 format.
+- PlugKit hashes email and phone (SHA-256) before they leave.
+- `value` is in **major** units (`490` = €490), unlike budgets.
+- `orderId` lets Google drop duplicates.
+- Pass `"validateOnly": true` to check a payload without importing it.
+- Up to 2,000 conversions per call.
+
+<Note>
+  Conversions go through Google's Data Manager API, which replaced the Google
+  Ads API conversion upload for new integrations in 2026. You don't need to do
+  anything for this: the same connection covers both.
+</Note>
+
+## Permissions
+
+The Google consent screen asks for two scopes: `adwords` (manage campaigns)
+and `datamanager` (import conversions).
