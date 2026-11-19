@@ -57,7 +57,8 @@
               "platforms/whatsapp",
               "platforms/telegram",
               "platforms/meta-ads",
-              "platforms/google-ads"
+              "platforms/google-ads",
+              "platforms/chatgpt-ads"
             ]
           },
           {

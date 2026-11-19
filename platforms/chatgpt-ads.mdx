@@ -1,0 +1,166 @@
+---
+title: "ChatGPT Ads"
+description: "Run ads shown under ChatGPT answers, through OpenAI's Ads API, with the same routes as Meta and Google Ads."
+icon: "comment-dots"
+---
+
+A `chatgpt_ads` account is an **OpenAI Ads Manager ad account**, not a social
+network. It publishes nothing and receives no messages: it holds campaigns
+whose ads appear as cards under ChatGPT answers.
+
+<CardGroup cols={2}>
+  <Card title="Campaigns" icon="bullhorn">Budget, countries, what you pay for.</Card>
+  <Card title="Ad groups" icon="comments">Targeted by the conversations they should appear in.</Card>
+  <Card title="Chat cards" icon="image">Title, text, image and landing page, with a preview.</Card>
+  <Card title="Insights" icon="chart-column">Spend and performance at every level.</Card>
+</CardGroup>
+
+## Connect
+
+OpenAI has no public OAuth for ads: each ad account has its own **Ads API
+key**. Create one in [OpenAI Ads Manager](https://ads.openai.com/settings) →
+Settings → API keys, then hand it to PlugKit:
+
+```bash
+curl -X POST https://api.plugkit.co/v1/connect/chatgpt_ads \
+  -H "Authorization: Bearer sk_your_key" -H "Content-Type: application/json" \
+  -d '{ "profileId": "YOUR_PROFILE_ID", "apiKey": "THE_OPENAI_ADS_KEY" }'
+```
+
+- A key opens exactly **one** ad account. Connect several accounts with one key each.
+- A `platform.openai.com` key is refused: it isn't an Ads key.
+- If the key is revoked in Ads Manager, the account switches to "needs
+  reconnection": connect it again with a new key.
+
+From the dashboard, the ChatGPT Ads tile takes the same key.
+
+```bash Check what you're spending against
+curl https://api.plugkit.co/v1/ads/ACCOUNT_ID/account -H "Authorization: Bearer sk_your_key"
+```
+
+Returns the currency, the status and `review_status`: the brand review OpenAI
+runs on the account. **No ad serves until it is approved.**
+
+## Same API as Meta and Google Ads
+
+ChatGPT Ads uses the same `/v1/ads/{accountId}/…` routes as
+[Meta Ads](/platforms/meta-ads) and [Google Ads](/platforms/google-ads), and the
+account decides which one PlugKit calls. The words are mapped like this:
+
+| PlugKit | OpenAI Ads |
+| --- | --- |
+| campaign | campaign |
+| ad set | ad group (targeted by `contextHints`) |
+| ad | `chat_card` |
+| `ACTIVE` / `PAUSED` | `active` / `paused` |
+
+<Warning>
+  **Budgets and bids are in minor units, like everywhere in PlugKit.** `2000`
+  is 20.00 in the account currency. OpenAI counts in micros; PlugKit converts
+  both ways, including in OpenAI's error messages.
+</Warning>
+
+<Warning>
+  **Everything is created `PAUSED`.** Set `status: "ACTIVE"` only after an
+  explicit go on the amount and the targeting, and after checking the preview.
+</Warning>
+
+## Build a campaign
+
+```bash Campaign — budget and countries
+curl -X POST https://api.plugkit.co/v1/ads/ACCOUNT_ID/campaigns \
+  -H "Authorization: Bearer sk_your_key" -H "Content-Type: application/json" \
+  -d '{
+    "name": "Trail shoes — launch",
+    "dailyBudget": 6500,
+    "countries": ["US"],
+    "biddingType": "clicks"
+  }'
+```
+
+- `dailyBudget` or `lifetimeBudget` is required. The budget lives on the
+  campaign: ad groups have none. OpenAI enforces a minimum, which depends on
+  the currency; below it, the error tells you the minimum in your currency.
+- `countries` is required, with no default. **Only the countries OpenAI has
+  opened to the ad account are accepted** — they depend on the country the
+  account was created in. Any other country is refused with "The campaign
+  does not target any country where this account can advertise".
+- `locationIds` adds regions or markets, found by name:
+  `GET /v1/ads/ACCOUNT_ID/locations?q=California`.
+- `biddingType`: `clicks` (default), `impressions` or `conversions` (needs a
+  conversion event enabled on the account).
+- `platforms` restricts where the ad serves: `ios_app`, `android_app`, `web`,
+  `desktop_web`, `ios_web`, `android_web`. All by default.
+
+```bash Ad group — the conversations to appear in
+curl -X POST https://api.plugkit.co/v1/ads/ACCOUNT_ID/adsets \
+  -H "Authorization: Bearer sk_your_key" -H "Content-Type: application/json" \
+  -d '{
+    "name": "Rocky terrain",
+    "campaignId": "cmpn_…",
+    "contextHints": [
+      "Trail running shoes for rocky terrain",
+      "Preparing a first ultra trail"
+    ]
+  }'
+```
+
+- ChatGPT has no keywords: `contextHints` describes, in plain language, the
+  conversations where the ad should appear.
+- Leave the bid out and OpenAI bids automatically. Pass `bidAmount` (minor
+  units) for a fixed max bid. `bidStrategy` can force `fixed_bid`,
+  `maximize_clicks` or `maximize_conversions`.
+- If OpenAI doesn't keep the bid you passed, the response carries a
+  `warnings` entry saying so, and `bid_amount` shows what is really set.
+
+```bash Ad — a chat card
+curl -X POST https://api.plugkit.co/v1/ads/ACCOUNT_ID/ads \
+  -H "Authorization: Bearer sk_your_key" -H "Content-Type: application/json" \
+  -d '{
+    "name": "Main card",
+    "adSetId": "adgrp_…",
+    "title": "Trail shoes built for rocks",
+    "body": "Vibram grip, 280 g. Free returns for 30 days.",
+    "targetUrl": "https://example.com/trail",
+    "imageUrl": "https://api.plugkit.co/v1/media/file/…"
+  }'
+```
+
+- `title` (3 to 50 characters), `body` (100 max) and `targetUrl` are required.
+- **An image is required.** Pass `imageUrl`, a public image of at least
+  640×640 that OpenAI fetches itself (a file from your PlugKit
+  [media library](/guides/publishing#the-media-library) works), or `fileId` for an image already
+  uploaded to OpenAI. Over MCP, `create_ad` also takes `mediaId`, a library id.
+
+```bash Preview before activating
+curl -X POST https://api.plugkit.co/v1/ads/ACCOUNT_ID/ads/ad_…/preview \
+  -H "Authorization: Bearer sk_your_key"
+```
+
+Returns the card as HTML, the way it will show under a ChatGPT answer, valid
+for 24 hours.
+
+To go live, activate the campaign, the ad group and the ad:
+`PATCH …/campaigns/{id}`, `…/adsets/{id}` and `…/ads/{id}` with
+`{ "status": "ACTIVE" }`.
+
+## Insights
+
+```bash
+curl "https://api.plugkit.co/v1/ads/ACCOUNT_ID/insights?level=campaign&datePreset=last_30d" \
+  -H "Authorization: Bearer sk_your_key"
+```
+
+- `level` is `account`, `campaign`, `adset` or `ad`. `objectId` (a `cmpn_`,
+  `adgrp_` or `ad_` id) narrows to one object.
+- `datePreset`: `today`, `yesterday`, `last_7d`, `last_14d`, `last_30d`
+  (default), `this_month`, `last_month` — or `since` + `until` (YYYY-MM-DD).
+- You get totals for the period: impressions, clicks, spend, CTR, CPC, CPM
+  and conversions. `spend`, `cpc` and `cpm` are major units, as strings
+  (`"12.34"`), like on Meta. There is no reach.
+
+## MCP
+
+Over MCP, the same tools as Meta and Google Ads apply (`create_campaign`,
+`create_ad_set`, `create_ad`, `get_ads_insights`…), plus two ChatGPT-only
+tools: `preview_ad` and `lookup_ad_locations`.
