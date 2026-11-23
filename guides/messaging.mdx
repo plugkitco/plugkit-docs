@@ -1,6 +1,6 @@
 ---
 title: "Messaging"
-description: "One inbox across Instagram, Facebook and WhatsApp."
+description: "One inbox across Instagram, Facebook, WhatsApp and X."
 ---
 
 Every messaging account's inbox is exposed as **conversations** and
@@ -100,6 +100,8 @@ own system — see [Webhooks](/guides/webhooks).
 
 <Warning>
   Telegram inbound messages aren't ingested yet, so Telegram bots don't appear
-  in the inbox. X DMs need elevated paid API access and aren't exposed. Broadcasts exclude X
-  for the same reason — see [Campaigns](/guides/campaigns).
+  in the inbox. X DMs have no webhook: they only arrive when you sync, each sync
+  is billed by X (up to $2), and they don't fire `message.received` — see
+  [X](/platforms/x#direct-messages). Broadcasts exclude X — see
+  [Campaigns](/guides/campaigns).
 </Warning>
