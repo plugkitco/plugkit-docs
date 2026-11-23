@@ -1,15 +1,16 @@
 ---
 title: "X (Twitter)"
-description: "Post tweets with media and read account & tweet analytics."
+description: "Post tweets with media, read account & tweet analytics, and sync and send DMs."
 icon: "x-twitter"
 ---
 
-X is a **publishing + analytics** integration via the X API v2 (OAuth 2.0 with
-PKCE, auto-refreshing tokens).
+X is a **publishing, analytics and DM** integration via the X API v2 (OAuth 2.0
+with PKCE, auto-refreshing tokens).
 
-<CardGroup cols={2}>
+<CardGroup cols={3}>
   <Card title="Publish" icon="feather">Text, images or video.</Card>
   <Card title="Analytics" icon="chart-simple">Account & per-tweet metrics.</Card>
+  <Card title="DMs" icon="envelope">Synced on demand, sent from the inbox.</Card>
 </CardGroup>
 
 ## Connect
@@ -78,17 +79,47 @@ curl -X POST https://api.plugkit.co/v1/billing/spend-cap \
   -d '{ "capUsd": 20 }'
 ```
 
+## Direct messages
+
+X DMs land in the same [inbox](/guides/messaging) as the other platforms, with
+three differences that come from X itself.
+
+- **No webhook: DMs only arrive when you sync.** Run
+  `POST /v1/inbox/conversations/sync?accountId=ACCOUNT_ID` (or the
+  `sync_conversations` MCP tool). Nothing pulls X DMs in the background, and
+  synced DMs don't fire `message.received`.
+- **Each sync is billed per DM returned.** A sync reads up to the **last 200
+  DMs from the past 30 days**, including ones already pulled, at $0.010 each —
+  so **at most $2 per sync**. Syncing every few minutes adds up fast.
+- **One-to-one only.** Group DMs are skipped, and conversations moved to X's
+  encrypted chat may not be returned by the API.
+
+Syncing is off by default, like analytics. Turn it on per account:
+
+```bash
+curl -X PATCH https://api.plugkit.co/v1/accounts/ACCOUNT_ID/x-billing \
+  -H "Authorization: Bearer sk_your_key" -H "Content-Type: application/json" \
+  -d '{ "inboxSync": true, "acknowledgeCost": true }'
+```
+
+Replies go out with the usual
+`POST /v1/inbox/conversations/{id}/messages`, at $0.015 per DM. Text only:
+attachments aren't supported, and buttons are written out as plain links.
+
+<Note>
+  Accounts connected before November 23, 2026 don't have the DM scopes.
+  Reconnect them once to grant `dm.read` and `dm.write`; until then a sync
+  returns a `403` that says so.
+</Note>
+
 ## Pricing
 
-X calls are re-billed at cost — $0.005 a read, $0.015 a post, and **$0.200 for
-a post containing a URL** (X's own pricing, roughly 13× a normal post). Watch it
-with `GET /v1/usage`; see [Plans & billing](/concepts/billing).
-
-## Not supported
-
-X DMs need elevated paid API access, so messaging isn't exposed here.
+X calls are re-billed at cost — $0.005 a read, $0.015 a post, **$0.200 for
+a post containing a URL** (X's own pricing, roughly 13× a normal post), $0.010
+per DM read and $0.015 per DM sent. Watch it with `GET /v1/usage`; see
+[Plans & billing](/concepts/billing).
 
 ## Permissions
 
-Scopes: `tweet.read`, `tweet.write`, `users.read`, `media.write`,
-`offline.access` (for token refresh).
+Scopes: `tweet.read`, `tweet.write`, `users.read`, `media.write`, `dm.read`,
+`dm.write`, `offline.access` (for token refresh).

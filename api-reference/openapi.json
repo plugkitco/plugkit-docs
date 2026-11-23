@@ -72,6 +72,14 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "brand",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -488,6 +496,56 @@
         ]
       }
     },
+    "/v1/billing/invoices/{id}/pay": {
+      "post": {
+        "operationId": "BillingController_payInvoice",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "description": "{ url: string | null, paid: boolean }"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        },
+        "security": [
+          {
+            "api-key": []
+          }
+        ],
+        "summary": "Pay a usage invoice whose automatic charge failed",
+        "tags": [
+          "billing"
+        ]
+      }
+    },
     "/v1/billing/invoices/{id}/pdf": {
       "get": {
         "operationId": "BillingController_invoicePdf",
@@ -803,12 +861,16 @@
                       "description": "Human-readable confirmation. Informative only: do not parse.",
                       "example": "Done"
                     },
+                    "emailSent": {
+                      "type": "boolean"
+                    },
                     "member": {
                       "$ref": "#/components/schemas/WorkspaceMember"
                     }
                   },
                   "required": [
                     "message",
+                    "emailSent",
                     "member"
                   ]
                 }
@@ -830,7 +892,73 @@
             "api-key": []
           }
         ],
-        "summary": "Invite someone to this workspace (they get access at their next sign-in with that email)",
+        "summary": "Invite someone to this workspace: they get an email, and access at their next sign-in with that address",
+        "tags": [
+          "workspaces"
+        ]
+      }
+    },
+    "/v1/workspaces/members/{id}/resend": {
+      "post": {
+        "operationId": "WorkspacesController_resend",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "description": "Human-readable confirmation. Informative only: do not parse.",
+                      "example": "Done"
+                    },
+                    "emailSent": {
+                      "type": "boolean"
+                    },
+                    "member": {
+                      "$ref": "#/components/schemas/WorkspaceMember"
+                    }
+                  },
+                  "required": [
+                    "message",
+                    "emailSent",
+                    "member"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        },
+        "security": [
+          {
+            "api-key": []
+          }
+        ],
+        "summary": "Send the invitation email again to a pending member",
         "tags": [
           "workspaces"
         ]
@@ -1770,7 +1898,9 @@
                 "linkedin",
                 "threads",
                 "bluesky",
-                "google_ads"
+                "google_ads",
+                "chatgpt_ads",
+                "tiktok_ads"
               ],
               "type": "string"
             }
@@ -2320,7 +2450,7 @@
             "api-key": []
           }
         ],
-        "summary": "Enable or disable the billable X background work (analytics, inbox sync). Both are off by default: X charges per call, so nothing polls until you say so.",
+        "summary": "Enable or disable the billable X work on an account: background analytics, and DM syncs (on demand only, never in the background). Both are off by default because X charges per call; turning one on requires `acknowledgeCost: true`.",
         "tags": [
           "accounts"
         ]
@@ -2445,6 +2575,141 @@
           }
         ],
         "summary": "Analytics for a single post",
+        "tags": [
+          "accounts"
+        ]
+      }
+    },
+    "/v1/accounts/{id}/media/{mediaId}/transcript": {
+      "get": {
+        "description": "What is said in a published Instagram reel, as timestamped sentences. Transcribed on the first request and kept: asking again for the same reel is free. Each new reel counts against a monthly limit per workspace.",
+        "operationId": "AccountsController_getTranscript",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mediaId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "accountId": {
+                      "type": "string"
+                    },
+                    "mediaId": {
+                      "type": "string"
+                    },
+                    "language": {
+                      "type": "string",
+                      "nullable": true,
+                      "example": "fra"
+                    },
+                    "durationSeconds": {
+                      "type": "number",
+                      "nullable": true
+                    },
+                    "segments": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "start": {
+                            "type": "number",
+                            "example": 0.4
+                          },
+                          "end": {
+                            "type": "number",
+                            "example": 3.1
+                          },
+                          "text": {
+                            "type": "string",
+                            "example": "Arrête de poster tous les jours."
+                          }
+                        },
+                        "required": [
+                          "start",
+                          "end",
+                          "text"
+                        ]
+                      }
+                    },
+                    "cached": {
+                      "type": "boolean"
+                    },
+                    "monthlyUsage": {
+                      "type": "object",
+                      "properties": {
+                        "used": {
+                          "type": "integer"
+                        },
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "resetsAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "example": "2026-11-10T09:30:00.000Z"
+                        }
+                      },
+                      "required": [
+                        "used",
+                        "limit",
+                        "resetsAt"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "accountId",
+                    "mediaId",
+                    "language",
+                    "durationSeconds",
+                    "segments",
+                    "cached",
+                    "monthlyUsage"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "502": {
+            "$ref": "#/components/responses/PlatformError"
+          }
+        },
+        "security": [
+          {
+            "api-key": []
+          }
+        ],
+        "summary": "Transcript of a reel",
         "tags": [
           "accounts"
         ]
@@ -3954,6 +4219,164 @@
         ]
       }
     },
+    "/v1/ads/{accountId}/ads/{adId}/preview": {
+      "post": {
+        "operationId": "AdsController_previewAd",
+        "parameters": [
+          {
+            "name": "accountId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "adId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "adId": {
+                      "type": "string"
+                    },
+                    "previews": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "expiresInHours": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "adId",
+                    "previews",
+                    "expiresInHours"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "502": {
+            "$ref": "#/components/responses/PlatformError"
+          }
+        },
+        "security": [
+          {
+            "api-key": []
+          }
+        ],
+        "summary": "Render an ad as it will appear under a ChatGPT answer (ChatGPT Ads only, HTML valid 24 h)",
+        "tags": [
+          "ads"
+        ]
+      }
+    },
+    "/v1/ads/{accountId}/locations": {
+      "get": {
+        "operationId": "AdsController_lookupLocations",
+        "parameters": [
+          {
+            "name": "accountId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "locations": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": true,
+                        "description": "OpenAI location: id, name, type"
+                      }
+                    }
+                  },
+                  "required": [
+                    "locations"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "502": {
+            "$ref": "#/components/responses/PlatformError"
+          }
+        },
+        "security": [
+          {
+            "api-key": []
+          }
+        ],
+        "summary": "Search regions and markets to target by name (ChatGPT Ads only); pass their ids as locationIds",
+        "tags": [
+          "ads"
+        ]
+      }
+    },
     "/v1/connect/{platform}": {
       "get": {
         "operationId": "ConnectController_getUrl",
@@ -4035,6 +4458,27 @@
                       "type": "string",
                       "format": "uri",
                       "description": "Open it in a browser: the user approves access on the platform and lands back on PlugKit."
+                    },
+                    "accountLimit": {
+                      "type": "object",
+                      "description": "Present when the plan has no room for a NEW account: connecting one would be refused on return. Reconnecting an account that is already connected still works. Offer the upgrade (`action_url`) before opening `authUrl`.",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "example": "account_quota_exceeded"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "action_url": {
+                          "type": "string",
+                          "format": "uri"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
                   "required": [
@@ -4336,6 +4780,63 @@
         ]
       }
     },
+    "/v1/connect/chatgpt_ads": {
+      "post": {
+        "description": "Body: `profileId` and `apiKey`, an Ads API key created in OpenAI Ads Manager → Settings → API keys (ads.openai.com/settings). A key opens exactly one ad account: connect several accounts with one key each. A platform.openai.com key is refused.",
+        "operationId": "ConnectController_connectChatGptAds",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "description": "Human-readable confirmation. Informative only: do not parse.",
+                      "example": "Account connected"
+                    },
+                    "account": {
+                      "$ref": "#/components/schemas/Account"
+                    }
+                  },
+                  "required": [
+                    "message",
+                    "account"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "402": {
+            "$ref": "#/components/responses/PaymentRequired"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "502": {
+            "$ref": "#/components/responses/PlatformError"
+          }
+        },
+        "security": [
+          {
+            "api-key": []
+          }
+        ],
+        "summary": "Connect a ChatGPT Ads (OpenAI Ads Manager) account with its API key",
+        "tags": [
+          "connect"
+        ]
+      }
+    },
     "/v1/connect-invites": {
       "post": {
         "description": "Body: `profileId`. Returns `url`, valid 30 days. Creating a link revokes the previous one for that profile.",
@@ -4615,7 +5116,9 @@
                 "linkedin",
                 "threads",
                 "bluesky",
-                "google_ads"
+                "google_ads",
+                "chatgpt_ads",
+                "tiktok_ads"
               ],
               "type": "string"
             }
@@ -4781,7 +5284,9 @@
                 "linkedin",
                 "threads",
                 "bluesky",
-                "google_ads"
+                "google_ads",
+                "chatgpt_ads",
+                "tiktok_ads"
               ],
               "type": "string"
             }
@@ -5696,6 +6201,744 @@
         ]
       }
     },
+    "/v1/media": {
+      "get": {
+        "operationId": "MediaController_listLibrary",
+        "parameters": [
+          {
+            "name": "type",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "includePending",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "media": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/MediaAsset"
+                      }
+                    },
+                    "pagination": {
+                      "type": "object",
+                      "description": "Only page, limit and total here (no `pages`/`hasMore`).",
+                      "properties": {
+                        "page": {
+                          "type": "integer"
+                        },
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "total": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "page",
+                        "limit",
+                        "total"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "media",
+                    "pagination"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        },
+        "security": [
+          {
+            "api-key": []
+          }
+        ],
+        "summary": "List the media library",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/v1/media/{id}": {
+      "delete": {
+        "operationId": "MediaController_removeFromLibrary",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "description": "Human-readable confirmation. Informative only: do not parse.",
+                      "example": "Media deleted"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        },
+        "security": [
+          {
+            "api-key": []
+          }
+        ],
+        "summary": "Delete a media from the library",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/v1/media/upload": {
+      "post": {
+        "operationId": "MediaController_upload",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "description": "Human-readable confirmation. Informative only: do not parse.",
+                      "example": "Media uploaded"
+                    },
+                    "media": {
+                      "$ref": "#/components/schemas/UploadedMedia"
+                    }
+                  },
+                  "required": [
+                    "message",
+                    "media"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        },
+        "security": [
+          {
+            "api-key": []
+          }
+        ],
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/v1/media/upload-url": {
+      "post": {
+        "operationId": "MediaController_createUploadUrl",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadTicket"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        },
+        "security": [
+          {
+            "api-key": []
+          }
+        ],
+        "summary": "Get a single-use upload link (used without an authorization header)",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/v1/media/upload/{token}": {
+      "get": {
+        "operationId": "MediaController_uploadPage",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Browser drop page for the ticket (410 when the ticket is expired or used).",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "security": [],
+        "summary": "Browser drop page of an upload link",
+        "tags": [
+          "media"
+        ]
+      },
+      "put": {
+        "operationId": "MediaController_putWithTicket",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "description": "Human-readable confirmation. Informative only: do not parse.",
+                      "example": "Media uploaded"
+                    },
+                    "media": {
+                      "$ref": "#/components/schemas/UploadedMedia"
+                    }
+                  },
+                  "required": [
+                    "message",
+                    "media"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "security": [],
+        "summary": "Upload a file with an upload link (PUT)",
+        "tags": [
+          "media"
+        ]
+      },
+      "post": {
+        "operationId": "MediaController_postWithTicket",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "description": "Human-readable confirmation. Informative only: do not parse.",
+                      "example": "Media uploaded"
+                    },
+                    "media": {
+                      "$ref": "#/components/schemas/UploadedMedia"
+                    }
+                  },
+                  "required": [
+                    "message",
+                    "media"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "security": [],
+        "summary": "Upload a file with an upload link (POST)",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/v1/media/uploads/{token}/complete": {
+      "post": {
+        "operationId": "MediaController_completeDirectUpload",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "enum": [
+                        "Media stored",
+                        "Nothing uploaded yet"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "security": [],
+        "summary": "Confirm that a direct upload is finished",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/v1/media/uploads/{token}/parts": {
+      "post": {
+        "operationId": "MediaController_openMultipart",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "uploadId": {
+                      "type": "string"
+                    },
+                    "partSize": {
+                      "type": "integer",
+                      "description": "Bytes per part."
+                    },
+                    "partCount": {
+                      "type": "integer"
+                    },
+                    "from": {
+                      "type": "integer",
+                      "description": "First part number to send."
+                    },
+                    "urls": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "format": "uri"
+                      },
+                      "description": "Signed PUT URL per remaining part."
+                    },
+                    "uploaded": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "partNumber": {
+                            "type": "integer"
+                          },
+                          "etag": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "partNumber",
+                          "etag"
+                        ]
+                      },
+                      "description": "Parts already stored (resume)."
+                    }
+                  },
+                  "required": [
+                    "uploadId",
+                    "partSize",
+                    "partCount",
+                    "from",
+                    "urls",
+                    "uploaded"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "security": [],
+        "summary": "Start or resume a chunked upload",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/v1/media/uploads/{token}/parts/complete": {
+      "post": {
+        "operationId": "MediaController_completeMultipart",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "description": "Human-readable confirmation. Informative only: do not parse.",
+                      "example": "Media stored"
+                    },
+                    "media": {
+                      "type": "object",
+                      "properties": {
+                        "url": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "filename": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "url",
+                        "filename"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "message",
+                    "media"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "security": [],
+        "summary": "Complete a chunked upload",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/v1/media/stream/{token}": {
+      "put": {
+        "operationId": "MediaController_streamWithTicket",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "description": "Human-readable confirmation. Informative only: do not parse.",
+                      "example": "Media uploaded"
+                    },
+                    "media": {
+                      "$ref": "#/components/schemas/UploadedMedia"
+                    }
+                  },
+                  "required": [
+                    "message",
+                    "media"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "security": [],
+        "summary": "Stream a large file with an upload link (PUT)",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/v1/media/file/{filename}": {
+      "get": {
+        "operationId": "MediaController_serve",
+        "parameters": [
+          {
+            "name": "filename",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file bytes (supports `Range`).",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "security": [],
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/v1/media/file/{filename}/tiktok.jpg": {
+      "get": {
+        "operationId": "MediaController_serveTikTokPhoto",
+        "parameters": [
+          {
+            "name": "filename",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The image as a TikTok-ready JPEG (max 1080p).",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "security": [],
+        "tags": [
+          "media"
+        ]
+      }
+    },
     "/v1/posts": {
       "post": {
         "description": "With `publishNow`, the response returns immediately with `status: \"publishing\"` and publishing runs in the background. Poll GET /posts/:id to follow it.",
@@ -5826,7 +7069,9 @@
                 "linkedin",
                 "threads",
                 "bluesky",
-                "google_ads"
+                "google_ads",
+                "chatgpt_ads",
+                "tiktok_ads"
               ],
               "type": "string"
             }
@@ -6555,6 +7800,137 @@
         ]
       }
     },
+    "/v1/shopping/{accountId}/audio": {
+      "get": {
+        "description": "Searches the sounds Meta authorizes for third-party tools (Instagram Audio API). Pass the returned `audioId` as `instagramAudio.audioId` on POST /posts to attach it to a reel. Without `q`, Meta returns trending sounds. Needs the Facebook authorization of the account (`GET /shopping/{accountId}/authorize`); the catalog may differ from the one in the Instagram app.",
+        "operationId": "ShoppingController_audio",
+        "parameters": [
+          {
+            "name": "accountId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "music",
+                        "original_sound"
+                      ]
+                    },
+                    "trending": {
+                      "type": "boolean"
+                    },
+                    "sounds": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "audioId": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "artist": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "durationMs": {
+                            "type": "integer",
+                            "nullable": true
+                          },
+                          "coverUrl": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "previewUrl": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "downloadUrl": {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        },
+                        "required": [
+                          "audioId",
+                          "title",
+                          "artist",
+                          "durationMs",
+                          "coverUrl",
+                          "previewUrl",
+                          "downloadUrl"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "trending",
+                    "sounds"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "502": {
+            "$ref": "#/components/responses/PlatformError"
+          }
+        },
+        "security": [
+          {
+            "api-key": []
+          }
+        ],
+        "summary": "Search sounds and music for an Instagram reel",
+        "tags": [
+          "shopping"
+        ]
+      }
+    },
     "/v1/shopping/{accountId}/media/{mediaId}/tags": {
       "post": {
         "description": "Replaces the product tags of an existing media. Up to 20 tags on a photo (each with x/y coordinates between 0 and 1) and 30 on a video or reel, where coordinates do not apply. Instagram allows 25 tagged posts per 24 hours per account.",
@@ -6673,7 +8049,9 @@
                 "linkedin",
                 "threads",
                 "bluesky",
-                "google_ads"
+                "google_ads",
+                "chatgpt_ads",
+                "tiktok_ads"
               ],
               "type": "string"
             }
@@ -6782,7 +8160,9 @@
                 "linkedin",
                 "threads",
                 "bluesky",
-                "google_ads"
+                "google_ads",
+                "chatgpt_ads",
+                "tiktok_ads"
               ],
               "type": "string"
             }
@@ -6966,7 +8346,9 @@
                 "linkedin",
                 "threads",
                 "bluesky",
-                "google_ads"
+                "google_ads",
+                "chatgpt_ads",
+                "tiktok_ads"
               ],
               "type": "string"
             }
@@ -7090,7 +8472,9 @@
                 "linkedin",
                 "threads",
                 "bluesky",
-                "google_ads"
+                "google_ads",
+                "chatgpt_ads",
+                "tiktok_ads"
               ],
               "type": "string"
             }
@@ -7214,7 +8598,9 @@
                 "linkedin",
                 "threads",
                 "bluesky",
-                "google_ads"
+                "google_ads",
+                "chatgpt_ads",
+                "tiktok_ads"
               ],
               "type": "string"
             }
@@ -7411,7 +8797,9 @@
                 "linkedin",
                 "threads",
                 "bluesky",
-                "google_ads"
+                "google_ads",
+                "chatgpt_ads",
+                "tiktok_ads"
               ],
               "type": "string"
             }
@@ -7575,7 +8963,9 @@
                 "linkedin",
                 "threads",
                 "bluesky",
-                "google_ads"
+                "google_ads",
+                "chatgpt_ads",
+                "tiktok_ads"
               ],
               "type": "string"
             }
@@ -7718,7 +9108,9 @@
                 "linkedin",
                 "threads",
                 "bluesky",
-                "google_ads"
+                "google_ads",
+                "chatgpt_ads",
+                "tiktok_ads"
               ],
               "type": "string"
             }
@@ -7981,706 +9373,6 @@
         "summary": "Refresh now instead of waiting for the next cycle (at most once every 2 minutes per account)",
         "tags": [
           "analytics"
-        ]
-      }
-    },
-    "/v1/media": {
-      "get": {
-        "operationId": "MediaController_listLibrary",
-        "parameters": [
-          {
-            "name": "type",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "search",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "page",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "includePending",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "media": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/MediaAsset"
-                      }
-                    },
-                    "pagination": {
-                      "type": "object",
-                      "description": "Only page, limit and total here (no `pages`/`hasMore`).",
-                      "properties": {
-                        "page": {
-                          "type": "integer"
-                        },
-                        "limit": {
-                          "type": "integer"
-                        },
-                        "total": {
-                          "type": "integer"
-                        }
-                      },
-                      "required": [
-                        "page",
-                        "limit",
-                        "total"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "media",
-                    "pagination"
-                  ]
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "429": {
-            "$ref": "#/components/responses/RateLimited"
-          }
-        },
-        "security": [
-          {
-            "api-key": []
-          }
-        ],
-        "summary": "List the media library",
-        "tags": [
-          "media"
-        ]
-      }
-    },
-    "/v1/media/{id}": {
-      "delete": {
-        "operationId": "MediaController_removeFromLibrary",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Human-readable confirmation. Informative only: do not parse.",
-                      "example": "Media deleted"
-                    }
-                  },
-                  "required": [
-                    "message"
-                  ]
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          },
-          "429": {
-            "$ref": "#/components/responses/RateLimited"
-          }
-        },
-        "security": [
-          {
-            "api-key": []
-          }
-        ],
-        "summary": "Delete a media from the library",
-        "tags": [
-          "media"
-        ]
-      }
-    },
-    "/v1/media/upload": {
-      "post": {
-        "operationId": "MediaController_upload",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "file": {
-                    "type": "string",
-                    "format": "binary"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Human-readable confirmation. Informative only: do not parse.",
-                      "example": "Media uploaded"
-                    },
-                    "media": {
-                      "$ref": "#/components/schemas/UploadedMedia"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "media"
-                  ]
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "429": {
-            "$ref": "#/components/responses/RateLimited"
-          }
-        },
-        "security": [
-          {
-            "api-key": []
-          }
-        ],
-        "tags": [
-          "media"
-        ]
-      }
-    },
-    "/v1/media/upload-url": {
-      "post": {
-        "operationId": "MediaController_createUploadUrl",
-        "parameters": [],
-        "responses": {
-          "201": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UploadTicket"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "429": {
-            "$ref": "#/components/responses/RateLimited"
-          }
-        },
-        "security": [
-          {
-            "api-key": []
-          }
-        ],
-        "summary": "Get a single-use upload link (used without an authorization header)",
-        "tags": [
-          "media"
-        ]
-      }
-    },
-    "/v1/media/upload/{token}": {
-      "get": {
-        "operationId": "MediaController_uploadPage",
-        "parameters": [
-          {
-            "name": "token",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Browser drop page for the ticket (410 when the ticket is expired or used).",
-            "content": {
-              "text/html": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          }
-        },
-        "security": [],
-        "summary": "Browser drop page of an upload link",
-        "tags": [
-          "media"
-        ]
-      },
-      "put": {
-        "operationId": "MediaController_putWithTicket",
-        "parameters": [
-          {
-            "name": "token",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Human-readable confirmation. Informative only: do not parse.",
-                      "example": "Media uploaded"
-                    },
-                    "media": {
-                      "$ref": "#/components/schemas/UploadedMedia"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "media"
-                  ]
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          }
-        },
-        "security": [],
-        "summary": "Upload a file with an upload link (PUT)",
-        "tags": [
-          "media"
-        ]
-      },
-      "post": {
-        "operationId": "MediaController_postWithTicket",
-        "parameters": [
-          {
-            "name": "token",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Human-readable confirmation. Informative only: do not parse.",
-                      "example": "Media uploaded"
-                    },
-                    "media": {
-                      "$ref": "#/components/schemas/UploadedMedia"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "media"
-                  ]
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          }
-        },
-        "security": [],
-        "summary": "Upload a file with an upload link (POST)",
-        "tags": [
-          "media"
-        ]
-      }
-    },
-    "/v1/media/uploads/{token}/complete": {
-      "post": {
-        "operationId": "MediaController_completeDirectUpload",
-        "parameters": [
-          {
-            "name": "token",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "enum": [
-                        "Media stored",
-                        "Nothing uploaded yet"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "message"
-                  ]
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          }
-        },
-        "security": [],
-        "summary": "Confirm that a direct upload is finished",
-        "tags": [
-          "media"
-        ]
-      }
-    },
-    "/v1/media/uploads/{token}/parts": {
-      "post": {
-        "operationId": "MediaController_openMultipart",
-        "parameters": [
-          {
-            "name": "token",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "uploadId": {
-                      "type": "string"
-                    },
-                    "partSize": {
-                      "type": "integer",
-                      "description": "Bytes per part."
-                    },
-                    "partCount": {
-                      "type": "integer"
-                    },
-                    "from": {
-                      "type": "integer",
-                      "description": "First part number to send."
-                    },
-                    "urls": {
-                      "type": "array",
-                      "items": {
-                        "type": "string",
-                        "format": "uri"
-                      },
-                      "description": "Signed PUT URL per remaining part."
-                    },
-                    "uploaded": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "partNumber": {
-                            "type": "integer"
-                          },
-                          "etag": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "partNumber",
-                          "etag"
-                        ]
-                      },
-                      "description": "Parts already stored (resume)."
-                    }
-                  },
-                  "required": [
-                    "uploadId",
-                    "partSize",
-                    "partCount",
-                    "from",
-                    "urls",
-                    "uploaded"
-                  ]
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          }
-        },
-        "security": [],
-        "summary": "Start or resume a chunked upload",
-        "tags": [
-          "media"
-        ]
-      }
-    },
-    "/v1/media/uploads/{token}/parts/complete": {
-      "post": {
-        "operationId": "MediaController_completeMultipart",
-        "parameters": [
-          {
-            "name": "token",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Human-readable confirmation. Informative only: do not parse.",
-                      "example": "Media stored"
-                    },
-                    "media": {
-                      "type": "object",
-                      "properties": {
-                        "url": {
-                          "type": "string",
-                          "format": "uri"
-                        },
-                        "filename": {
-                          "type": "string"
-                        }
-                      },
-                      "required": [
-                        "url",
-                        "filename"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "media"
-                  ]
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          }
-        },
-        "security": [],
-        "summary": "Complete a chunked upload",
-        "tags": [
-          "media"
-        ]
-      }
-    },
-    "/v1/media/stream/{token}": {
-      "put": {
-        "operationId": "MediaController_streamWithTicket",
-        "parameters": [
-          {
-            "name": "token",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Human-readable confirmation. Informative only: do not parse.",
-                      "example": "Media uploaded"
-                    },
-                    "media": {
-                      "$ref": "#/components/schemas/UploadedMedia"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "media"
-                  ]
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          }
-        },
-        "security": [],
-        "summary": "Stream a large file with an upload link (PUT)",
-        "tags": [
-          "media"
-        ]
-      }
-    },
-    "/v1/media/file/{filename}": {
-      "get": {
-        "operationId": "MediaController_serve",
-        "parameters": [
-          {
-            "name": "filename",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "The file bytes (supports `Range`).",
-            "content": {
-              "application/octet-stream": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          }
-        },
-        "security": [],
-        "tags": [
-          "media"
         ]
       }
     },
@@ -10393,7 +11085,9 @@
                 "linkedin",
                 "threads",
                 "bluesky",
-                "google_ads"
+                "google_ads",
+                "chatgpt_ads",
+                "tiktok_ads"
               ],
               "type": "string"
             }
@@ -10539,7 +11233,9 @@
                 "linkedin",
                 "threads",
                 "bluesky",
-                "google_ads"
+                "google_ads",
+                "chatgpt_ads",
+                "tiktok_ads"
               ],
               "type": "string"
             }
@@ -11808,7 +12504,8 @@
             "type": "string",
             "enum": [
               "CREATOR",
-              "PRO"
+              "PRO",
+              "DUO"
             ],
             "description": "Plan to subscribe to.",
             "example": "PRO"
@@ -11836,7 +12533,7 @@
         "properties": {
           "capUsd": {
             "type": "object",
-            "description": "Monthly cap on X pay-per-call spend, in USD. Null falls back to the default cap ($20) — there is no \"unlimited\": to spend more, set a higher number. At 80% you get a warning; at 100% background analytics and inbox polling pause — publishing keeps working, so a scheduled post is never held back over a fraction of a cent.",
+            "description": "Monthly cap on X pay-per-call spend, in USD. Null falls back to the default cap ($20) — there is no \"unlimited\": to spend more, set a higher number. At 80% you get a warning; at 100% background analytics and X DM syncs and sends pause — publishing keeps working, so a scheduled post is never held back over a fraction of a cent.",
             "example": 25
           }
         }
@@ -11986,7 +12683,9 @@
               "linkedin",
               "threads",
               "bluesky",
-              "google_ads"
+              "google_ads",
+              "chatgpt_ads",
+              "tiktok_ads"
             ]
           },
           "profileId": {
@@ -12041,7 +12740,7 @@
           },
           "inboxSync": {
             "type": "boolean",
-            "description": "Allow background inbox polling on this X account. X charges $0.010 per DM read."
+            "description": "Allow DM syncs on this X account. Nothing runs in the background: it only authorizes the syncs you start (sync_conversations / POST /v1/inbox/conversations/sync). X charges $0.010 per DM read; a sync reads up to the last 200 DMs of the past 30 days, so at most $2."
           },
           "acknowledgeCost": {
             "type": "boolean",
@@ -12098,11 +12797,34 @@
             "description": "Google only: campaign type. Only SEARCH can be created."
           },
           "countries": {
-            "description": "Google only: targeted countries (ISO codes). Defaults to FR — a Google campaign without location targeting serves worldwide.",
+            "description": "Google and ChatGPT: targeted countries (ISO codes). Google defaults to FR — a Google campaign without location targeting serves worldwide. ChatGPT: required, no default; only the countries OpenAI opened to the ad account are accepted.",
             "example": [
               "FR",
               "BE"
             ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "locationIds": {
+            "description": "ChatGPT only: region or market ids from GET /v1/ads/{accountId}/locations, added to countries.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "biddingType": {
+            "type": "string",
+            "enum": [
+              "clicks",
+              "impressions",
+              "conversions"
+            ],
+            "description": "ChatGPT only: what the campaign buys. clicks by default; conversions needs a conversion event enabled on the account."
+          },
+          "platforms": {
+            "description": "ChatGPT only: where the ad can serve (ios_app, android_app, web, desktop_web, ios_web, android_web). All by default.",
             "type": "array",
             "items": {
               "type": "string"
@@ -12218,7 +12940,7 @@
           },
           "bidStrategy": {
             "type": "string",
-            "description": "Meta bid strategy. Defaults to LOWEST_COST_WITH_BID_CAP when bidAmount is set, LOWEST_COST_WITHOUT_CAP otherwise.",
+            "description": "Meta bid strategy. Defaults to LOWEST_COST_WITH_BID_CAP when bidAmount is set, LOWEST_COST_WITHOUT_CAP otherwise. ChatGPT: fixed_bid, maximize_clicks or maximize_conversions; when omitted OpenAI uses a fixed bid if bidAmount is set, its automatic bid otherwise.",
             "example": "LOWEST_COST_WITHOUT_CAP"
           },
           "destinationType": {
@@ -12264,6 +12986,16 @@
             "items": {
               "$ref": "#/components/schemas/KeywordDto"
             }
+          },
+          "contextHints": {
+            "description": "ChatGPT only, and what decides where the ad shows: plain-language descriptions of the conversations to appear in. ChatGPT has no keywords.",
+            "example": [
+              "Trail running shoes for rocky terrain"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
@@ -12295,6 +13027,16 @@
           "bidAmount": {
             "type": "number",
             "description": "Minor units of the account currency."
+          },
+          "contextHints": {
+            "description": "ChatGPT only, and what decides where the ad shows: plain-language descriptions of the conversations to appear in. ChatGPT has no keywords.",
+            "example": [
+              "Trail running shoes for rocky terrain"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -12359,6 +13101,55 @@
           "path2": {
             "type": "string",
             "description": "Google only: display path, 15 chars max."
+          },
+          "title": {
+            "type": "string",
+            "description": "ChatGPT only: card title, 3 to 50 characters."
+          },
+          "body": {
+            "type": "string",
+            "description": "ChatGPT: card text, 100 characters max. TikTok: ad text, 1 to 100 characters."
+          },
+          "targetUrl": {
+            "type": "string",
+            "description": "ChatGPT and TikTok: landing page."
+          },
+          "imageUrl": {
+            "type": "string",
+            "description": "ChatGPT: public URL of the card image (at least 640×640), fetched by OpenAI — a PlugKit media URL works. Required unless fileId is set. TikTok: optional video cover."
+          },
+          "fileId": {
+            "type": "string",
+            "description": "ChatGPT only: OpenAI file id of an image already uploaded."
+          },
+          "videoUrl": {
+            "type": "string",
+            "description": "TikTok only: public URL serving the video file itself, fetched by TikTok."
+          },
+          "videoId": {
+            "type": "string",
+            "description": "TikTok only: a video already in the ad account library."
+          },
+          "tiktokItemId": {
+            "type": "string",
+            "description": "TikTok only (Spark Ad): id of a video already posted on TikTok. Needs identityId."
+          },
+          "identityId": {
+            "type": "string",
+            "description": "TikTok only: identity that signs the ad (GET ad account)."
+          },
+          "identityType": {
+            "type": "string",
+            "enum": [
+              "CUSTOMIZED_USER",
+              "TT_USER",
+              "BC_AUTH_TT",
+              "AUTH_CODE"
+            ]
+          },
+          "callToAction": {
+            "type": "string",
+            "description": "TikTok only: call-to-action button, LEARN_MORE by default."
           }
         },
         "required": [
@@ -12569,7 +13360,7 @@
         "properties": {
           "text": {
             "type": "string",
-            "description": "Text content of the message. Optional when `template` is given — the template carries the content, and the text is then only what the inbox shows."
+            "description": "Text content of the message. Optional when `template` is given — the template carries the content, and the text is then only what the inbox shows. With `mediaId`, it is the caption of the file (optional)."
           },
           "template": {
             "description": "WhatsApp only: send an approved template instead of free-form text. Required past the 24h messaging window; ignored by other platforms.",
@@ -12578,6 +13369,10 @@
                 "$ref": "#/components/schemas/MessageTemplateDto"
               }
             ]
+          },
+          "mediaId": {
+            "type": "string",
+            "description": "WhatsApp only: id of a media library file (GET /media) to send as an attachment — PDF, Word, Excel, PowerPoint, TXT (100 MB), JPG/PNG (5 MB), MP4 (16 MB). `text` becomes its caption. Like text, it only goes out within 24h of the contact’s last message."
           }
         },
         "required": [
@@ -12716,6 +13511,30 @@
         },
         "required": [
           "options"
+        ]
+      },
+      "InstagramAudioDto": {
+        "type": "object",
+        "properties": {
+          "audioId": {
+            "type": "string",
+            "description": "Id of the sound, from GET /shopping/{accountId}/audio (or the search_instagram_audio MCP tool). Never made up."
+          },
+          "audioVolume": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Volume of the added sound, 1 to 100 (Instagram default: 100)."
+          },
+          "videoVolume": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Volume of the video's own sound, 1 to 100 (Instagram default: 100). Lower it so the added music carries."
+          }
+        },
+        "required": [
+          "audioId"
         ]
       },
       "CreatePostDto": {
@@ -12909,6 +13728,14 @@
               }
             ]
           },
+          "instagramAudio": {
+            "description": "Instagram reel only: a sound or song from the Instagram library, attached at publishing (Meta Audio API). Needs the Facebook authorization of the account (turned on in the dashboard under Settings → Networks → « … » on the account → « Instagram music (reels) », or `GET /shopping/{accountId}/authorize`): without it, or on a photo, carousel or story, the Instagram target fails instead of publishing without the music.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/InstagramAudioDto"
+              }
+            ]
+          },
           "xReplySettings": {
             "type": "string",
             "enum": [
@@ -12972,7 +13799,7 @@
           "paidPartnership": {
             "type": "boolean",
             "default": false,
-            "description": "TikTok and X: the post promotes a third party as a paid partnership. TikTok labels it « Paid partnership », which wins over « Promotional content » when both are declared, and refuses it with a private (SELF_ONLY) visibility; X sets `paid_partnership`; Instagram sets its « Paid partnership » label when the account has a Facebook authorization (turned on from the account card, `GET /shopping/{accountId}/authorize`), and otherwise publishes without it and says so on the target."
+            "description": "TikTok and X: the post promotes a third party as a paid partnership. TikTok labels it « Paid partnership », which wins over « Promotional content » when both are declared, and refuses it with a private (SELF_ONLY) visibility; X sets `paid_partnership`; Instagram sets its « Paid partnership » label when the account has a Facebook authorization (turned on in the dashboard under Settings → Networks → « … » on the account → « Instagram music (reels) », or `GET /shopping/{accountId}/authorize`), and otherwise publishes without it and says so on the target."
           },
           "aiGenerated": {
             "type": "boolean",
@@ -13152,6 +13979,15 @@
               }
             ]
           },
+          "instagramAudio": {
+            "nullable": true,
+            "description": "Instagram reel only: sound from the Instagram library (see POST /posts). `null` removes it.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/InstagramAudioDto"
+              }
+            ]
+          },
           "xReplySettings": {
             "type": "string",
             "enum": [
@@ -13250,6 +14086,24 @@
           }
         }
       },
+      "DmButtonDto": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "example": "Get the guide",
+            "maxLength": 20
+          },
+          "url": {
+            "type": "string",
+            "example": "https://example.com/guide"
+          }
+        },
+        "required": [
+          "label",
+          "url"
+        ]
+      },
       "FollowGateDto": {
         "type": "object",
         "properties": {
@@ -13329,6 +14183,24 @@
           "dmButtonUrl": {
             "type": "string",
             "description": "Button destination (https URL). Empty removes the button, along with dmButtonLabel."
+          },
+          "dmButtons": {
+            "maxItems": 3,
+            "description": "Up to 3 link buttons under the DM (Instagram and Facebook), in order. Wins over dmButtonLabel/dmButtonUrl, which mirror the first button. Empty array removes every button.",
+            "example": [
+              {
+                "label": "Get the guide",
+                "url": "https://example.com/guide"
+              },
+              {
+                "label": "Try PlugKit",
+                "url": "https://plugkit.co"
+              }
+            ],
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DmButtonDto"
+            }
           },
           "publicReplies": {
             "description": "Public replies posted under the comments, taking turns so the account does not post the same sentence under every comment. Empty = no public reply. Wins over publicReplyText.",
@@ -13411,6 +14283,24 @@
           "dmButtonUrl": {
             "type": "string",
             "description": "Button destination (https URL). Empty removes the button, along with dmButtonLabel."
+          },
+          "dmButtons": {
+            "maxItems": 3,
+            "description": "Up to 3 link buttons under the DM (Instagram and Facebook), in order. Wins over dmButtonLabel/dmButtonUrl, which mirror the first button. Empty array removes every button.",
+            "example": [
+              {
+                "label": "Get the guide",
+                "url": "https://example.com/guide"
+              },
+              {
+                "label": "Try PlugKit",
+                "url": "https://plugkit.co"
+              }
+            ],
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DmButtonDto"
+            }
           },
           "publicReplies": {
             "description": "Public replies posted under the comments, taking turns so the account does not post the same sentence under every comment. Empty = no public reply. Wins over publicReplyText.",
@@ -14138,7 +15028,9 @@
               "linkedin",
               "threads",
               "bluesky",
-              "google_ads"
+              "google_ads",
+              "chatgpt_ads",
+              "tiktok_ads"
             ]
           },
           "accountId": {
@@ -14432,6 +15324,28 @@
           "poll": {
             "$ref": "#/components/schemas/Poll"
           },
+          "instagramAudio": {
+            "type": "object",
+            "description": "Instagram reel: sound from the Instagram library.",
+            "properties": {
+              "audioId": {
+                "type": "string"
+              },
+              "audioVolume": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100
+              },
+              "videoVolume": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100
+              }
+            },
+            "required": [
+              "audioId"
+            ]
+          },
           "linkedinVisibility": {
             "type": "string",
             "enum": [
@@ -14588,7 +15502,9 @@
               "linkedin",
               "threads",
               "bluesky",
-              "google_ads"
+              "google_ads",
+              "chatgpt_ads",
+              "tiktok_ads"
             ]
           },
           "profileId": {
@@ -14751,7 +15667,9 @@
               "linkedin",
               "threads",
               "bluesky",
-              "google_ads"
+              "google_ads",
+              "chatgpt_ads",
+              "tiktok_ads"
             ]
           },
           "fetchedAt": {
@@ -14886,7 +15804,9 @@
               "linkedin",
               "threads",
               "bluesky",
-              "google_ads"
+              "google_ads",
+              "chatgpt_ads",
+              "tiktok_ads"
             ]
           },
           "mediaId": {
@@ -14913,6 +15833,22 @@
             "type": "integer",
             "nullable": true
           },
+          "views": {
+            "type": "integer",
+            "nullable": true
+          },
+          "reach": {
+            "type": "integer",
+            "nullable": true
+          },
+          "saves": {
+            "type": "integer",
+            "nullable": true
+          },
+          "clicks": {
+            "type": "integer",
+            "nullable": true
+          },
           "platformData": {
             "type": "object",
             "additionalProperties": true,
@@ -14928,6 +15864,10 @@
           "comments",
           "shares",
           "impressions",
+          "views",
+          "reach",
+          "saves",
+          "clicks",
           "platformData"
         ]
       },
@@ -14999,7 +15939,9 @@
               "linkedin",
               "threads",
               "bluesky",
-              "google_ads"
+              "google_ads",
+              "chatgpt_ads",
+              "tiktok_ads"
             ]
           },
           "creatorNickname": {
@@ -15100,7 +16042,9 @@
               "linkedin",
               "threads",
               "bluesky",
-              "google_ads"
+              "google_ads",
+              "chatgpt_ads",
+              "tiktok_ads"
             ]
           },
           "accountId": {
@@ -15327,6 +16271,8 @@
               "threads",
               "bluesky",
               "google_ads",
+              "chatgpt_ads",
+              "tiktok_ads",
               null
             ]
           },
@@ -15367,6 +16313,13 @@
           },
           "dmText": {
             "type": "string"
+          },
+          "dmButtons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MessageButton"
+            },
+            "description": "Up to 3 link buttons under the DM, in order."
           },
           "dmButton": {
             "allOf": [
@@ -15423,6 +16376,7 @@
           "keywords",
           "matchType",
           "dmText",
+          "dmButtons",
           "dmButton",
           "publicReplies",
           "publicReplyText",
@@ -15530,6 +16484,8 @@
               "threads",
               "bluesky",
               "google_ads",
+              "chatgpt_ads",
+              "tiktok_ads",
               null
             ]
           },
@@ -15748,6 +16704,8 @@
               "threads",
               "bluesky",
               "google_ads",
+              "chatgpt_ads",
+              "tiktok_ads",
               null
             ]
           },
@@ -15950,7 +16908,9 @@
               "linkedin",
               "threads",
               "bluesky",
-              "google_ads"
+              "google_ads",
+              "chatgpt_ads",
+              "tiktok_ads"
             ]
           },
           "kind": {
@@ -16506,7 +17466,9 @@
               "linkedin",
               "threads",
               "bluesky",
-              "google_ads"
+              "google_ads",
+              "chatgpt_ads",
+              "tiktok_ads"
             ]
           },
           "username": {
@@ -16554,7 +17516,9 @@
               "linkedin",
               "threads",
               "bluesky",
-              "google_ads"
+              "google_ads",
+              "chatgpt_ads",
+              "tiktok_ads"
             ]
           },
           "account": {
@@ -16767,7 +17731,9 @@
                   "linkedin",
                   "threads",
                   "bluesky",
-                  "google_ads"
+                  "google_ads",
+                  "chatgpt_ads",
+                  "tiktok_ads"
                 ]
               },
               "account": {
@@ -16856,7 +17822,9 @@
               "linkedin",
               "threads",
               "bluesky",
-              "google_ads"
+              "google_ads",
+              "chatgpt_ads",
+              "tiktok_ads"
             ]
           },
           "posts": {
@@ -16939,7 +17907,9 @@
               "linkedin",
               "threads",
               "bluesky",
-              "google_ads"
+              "google_ads",
+              "chatgpt_ads",
+              "tiktok_ads"
             ]
           },
           "username": {
@@ -17043,7 +18013,7 @@
       },
       "AdAccount": {
         "type": "object",
-        "description": "Platform-native object (Meta Graph fields for `meta_ads`, a mapped subset for `google_ads`), snake_case. Budgets are in minor units of the account currency. Fields not listed may be present.",
+        "description": "Platform-native object (Meta Graph fields for `meta_ads`, a mapped subset for `google_ads`, `chatgpt_ads` and `tiktok_ads`), snake_case. Budgets are in minor units of the account currency. Fields not listed may be present.",
         "properties": {
           "id": {
             "type": "string"
@@ -17069,7 +18039,7 @@
       },
       "AdCampaign": {
         "type": "object",
-        "description": "Platform-native object (Meta Graph fields for `meta_ads`, a mapped subset for `google_ads`), snake_case. Budgets are in minor units of the account currency. Fields not listed may be present.",
+        "description": "Platform-native object (Meta Graph fields for `meta_ads`, a mapped subset for `google_ads`, `chatgpt_ads` and `tiktok_ads`), snake_case. Budgets are in minor units of the account currency. Fields not listed may be present.",
         "properties": {
           "id": {
             "type": "string"
@@ -17102,7 +18072,7 @@
       },
       "AdSet": {
         "type": "object",
-        "description": "Platform-native object (Meta Graph fields for `meta_ads`, a mapped subset for `google_ads`), snake_case. Budgets are in minor units of the account currency. Fields not listed may be present. On Google Ads, an ad set is an ad group.",
+        "description": "Platform-native object (Meta Graph fields for `meta_ads`, a mapped subset for `google_ads`, `chatgpt_ads` and `tiktok_ads`), snake_case. Budgets are in minor units of the account currency. Fields not listed may be present. On Google Ads, an ad set is an ad group.",
         "properties": {
           "id": {
             "type": "string"
@@ -17132,7 +18102,7 @@
       },
       "Ad": {
         "type": "object",
-        "description": "Platform-native object (Meta Graph fields for `meta_ads`, a mapped subset for `google_ads`), snake_case. Budgets are in minor units of the account currency. Fields not listed may be present.",
+        "description": "Platform-native object (Meta Graph fields for `meta_ads`, a mapped subset for `google_ads`, `chatgpt_ads` and `tiktok_ads`), snake_case. Budgets are in minor units of the account currency. Fields not listed may be present.",
         "properties": {
           "id": {
             "type": "string",
@@ -17228,7 +18198,7 @@
       },
       "AdInsight": {
         "type": "object",
-        "description": "Platform-native object (Meta Graph fields for `meta_ads`, a mapped subset for `google_ads`), snake_case. Budgets are in minor units of the account currency. Fields not listed may be present.",
+        "description": "Platform-native object (Meta Graph fields for `meta_ads`, a mapped subset for `google_ads`, `chatgpt_ads` and `tiktok_ads`), snake_case. Budgets are in minor units of the account currency. Fields not listed may be present.",
         "properties": {
           "impressions": {
             "type": "string"
@@ -17566,6 +18536,10 @@
             "format": "date-time",
             "example": "2026-11-10T09:30:00.000Z",
             "nullable": true
+          },
+          "mcpAccess": {
+            "type": "boolean",
+            "description": "True when this member authorized an AI app (MCP connector) to act in this workspace."
           }
         },
         "required": [

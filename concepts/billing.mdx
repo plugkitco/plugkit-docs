@@ -75,8 +75,9 @@ starts billing per call joins the same table.
 
 ### Nothing runs until you say so
 
-Background work on a metered account is off by default. Two independent
-switches, per account:
+Paid work on a metered account is off by default. Two independent switches, per
+account: `analytics` (background collection) and `inboxSync` (DM syncs, which
+only run when you ask for one — there is no background DM polling):
 
 ```bash
 curl -X PATCH https://api.plugkit.co/v1/accounts/ACCOUNT_ID/x-billing \
@@ -84,7 +85,7 @@ curl -X PATCH https://api.plugkit.co/v1/accounts/ACCOUNT_ID/x-billing \
   -d '{ "analytics": true, "acknowledgeCost": true }'
 ```
 
-Until they're on, nothing polls and the account costs nothing. It isn't the call
+Until they're on, nothing is collected or synced and the account costs nothing. It isn't the call
 you asked for that blows up an invoice — it's the loop running while nobody's
 watching.
 
@@ -114,8 +115,8 @@ curl -X POST https://api.plugkit.co/v1/billing/spend-cap \
 
 At 80% you get a **`usage.threshold_reached` webhook** — once per month, before
 anything stops, carrying what will pause and what will keep running. At 100%,
-background polling stops — but **publishing
-and sending are never blocked**. Failing a scheduled post to save half a cent
+background analytics and X DM syncs and sends stop — but **publishing is never
+blocked**. Failing a scheduled post to save half a cent
 does far more damage than a small overshoot: someone planned that message.
 
 `GET /v1/billing/subscription` returns the cap in force and `cap_is_default`,

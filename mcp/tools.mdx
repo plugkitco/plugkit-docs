@@ -77,14 +77,14 @@ Tools marked **write** are hidden entirely from a session granted `mcp:read`.
 
 | Tool | | What it does |
 | --- | --- | --- |
-| `list_conversations` | read | The unified inbox across Instagram, Facebook, WhatsApp and Telegram. |
+| `list_conversations` | read | The unified inbox across Instagram, Facebook, WhatsApp, Telegram and X. |
 | `get_conversation` | read | One conversation (contact, account, platform). |
 | `list_messages` | read | History of a conversation with direction and delivery status. |
 | `list_instagram_threads` | read | Raw Instagram threads with participant IGSIDs — to find a contact the inbox doesn't know yet. |
 | `send_dm` | write | DM someone by name, @handle or phone number — no conversation id. Returns the matches instead of sending when several contacts fit. |
 | `send_message` | write | Reply in an existing conversation. Immediate and irreversible. |
 | `create_conversation` | write | Open a thread with a contact identified by their platform id. |
-| `sync_conversations` | write | Pull conversations and messages from the platform API when the inbox looks stale. |
+| `sync_conversations` | write | Pull conversations and messages from the platform API when the inbox looks stale. On X, the only way DMs arrive, billed per DM read (up to $2 a sync). |
 | `send_direct_message` | write | Low-level escape hatch: send straight to a platform identifier, storing nothing in the inbox. |
 
 ## Analytics
@@ -211,7 +211,7 @@ account. The catalog is on [plugkit.co/playbooks](https://www.plugkit.co/playboo
 | --- | --- | --- |
 | `get_subscription` | read | Plan, account quota, and current X spend. |
 | `get_usage` | read | Pay-per-call spend for the month, broken down by operation. |
-| `set_x_billing` | write | Turn X background analytics and inbox sync on or off, per account. |
+| `set_x_billing` | write | Turn X background analytics and DM syncs on or off, per account (`acknowledgeCost: true` to turn one on). |
 
 <Note>
   `get_usage` exists so an assistant can weigh a cost **before** starting a
