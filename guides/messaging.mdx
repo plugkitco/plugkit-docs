@@ -71,13 +71,23 @@ curl -X POST https://api.plugkit.co/v1/accounts/ACCOUNT_ID/messages/send \
 
 ## The 24-hour window
 
-Meta — Instagram, Facebook Messenger and WhatsApp — only accepts free-form
-messages within **24 hours of the contact's last message**. Past that:
+Meta's rules — Instagram, Facebook Messenger and WhatsApp — only allow
+free-form messages within **24 hours of the contact's last message**. Past that:
 
-- **WhatsApp**: send an approved [template](/platforms/whatsapp#the-24-hour-window).
-- **Instagram / Facebook**: the window is closed. The single exception is a
-  private reply to a comment, once per comment, within 7 days — which is what
+- **WhatsApp**: Meta enforces it on every send. Send an approved
+  [template](/platforms/whatsapp#the-24-hour-window).
+- **Instagram / Facebook**: the window is closed under Meta's policy. Meta
+  doesn't always enforce it at send time: a message to someone who has never
+  written to you is refused, but a message to a contact who wrote before is
+  often accepted, even days later. Accepted doesn't mean allowed: PlugKit sends
+  no message tag (`HUMAN_AGENT` or other), so these sends are outside Meta's
+  policy, and Meta may restrict an account's messaging for repeated violations.
+  The exception PlugKit supports is a private reply to a comment, once per
+  comment, within 7 days — which is what
   [comment → DM automations](/guides/campaigns) run on.
+
+When Meta does refuse, the message is stored as `failed` with
+`failureReason: "messaging_window_closed"`.
 
 ## Sync from the platform
 
